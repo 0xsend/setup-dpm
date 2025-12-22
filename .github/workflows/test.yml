@@ -1,0 +1,111 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'dpm version to test'
+        required: false
+        default: 'latest'
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+          - os: ubuntu-24.04-arm
+            name: Linux ARM64
+          - os: macos-15-intel
+            name: macOS x86_64
+          - os: macos-14
+            name: macOS ARM64
+
+    runs-on: ${{ matrix.os }}
+    name: Test (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dpm (latest)
+        id: setup-latest
+        uses: ./
+        with:
+          version: ${{ inputs.version || 'latest' }}
+
+      - name: Verify dpm installation
+        run: |
+          echo "=== Installed version ==="
+          echo "Version: ${{ steps.setup-latest.outputs.version }}"
+          echo "Path: ${{ steps.setup-latest.outputs.path }}"
+
+          echo "=== dpm version ==="
+          dpm version
+
+          echo "=== dpm --help ==="
+          dpm --help | head -30
+
+      - name: Test dpm commands
+        run: |
+          echo "=== Testing dpm new ==="
+          dpm new test-project
+          cd test-project
+
+          echo "=== Testing dpm build ==="
+          dpm build
+
+          echo "=== Testing dpm test ==="
+          dpm test
+
+  test-specific-version:
+    runs-on: ubuntu-latest
+    name: Test (specific version)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dpm (specific version)
+        id: setup
+        uses: ./
+        with:
+          version: '3.4.9'
+
+      - name: Verify specific version
+        run: |
+          INSTALLED_VERSION=$(dpm version --active)
+          echo "Installed: ${INSTALLED_VERSION}"
+
+          if [[ "${INSTALLED_VERSION}" != "3.4.9" ]]; then
+            echo "ERROR: Expected 3.4.9 but got ${INSTALLED_VERSION}"
+            exit 1
+          fi
+
+          echo "Version check passed"
+
+  test-cache:
+    runs-on: ubuntu-latest
+    name: Test (cache)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dpm (first run - cache miss)
+        uses: ./
+
+      - name: Verify first installation
+        run: dpm version
+
+      - name: Setup dpm (second run - cache hit)
+        uses: ./
+
+      - name: Verify cached installation
+        run: dpm version

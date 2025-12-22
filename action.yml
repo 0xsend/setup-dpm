@@ -1,0 +1,121 @@
+name: 'Setup dpm'
+description: 'Install the Digital Asset Package Manager (dpm) CLI for DAML development'
+author: '0xsend'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'Version of dpm to install (e.g., "3.4.9" or "latest")'
+    required: false
+    default: 'latest'
+
+outputs:
+  version:
+    description: 'The version of dpm that was installed'
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: 'Path to the dpm installation directory'
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine version
+      id: version
+      shell: bash
+      run: |
+        if [[ "${{ inputs.version }}" == "latest" ]]; then
+          VERSION=$(curl -sS "https://get.digitalasset.com/install/latest")
+        else
+          VERSION="${{ inputs.version }}"
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Installing dpm version: ${VERSION}"
+
+    - name: Determine platform
+      id: platform
+      shell: bash
+      run: |
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        # Map architecture names
+        case "${ARCH}" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+          arm64)   ARCH="arm64" ;;
+          *)
+            echo "Unsupported architecture: ${ARCH}"
+            exit 1
+            ;;
+        esac
+
+        # Map OS names
+        case "${OS}" in
+          linux)  OS="linux" ;;
+          darwin) OS="darwin" ;;
+          *)
+            echo "Unsupported OS: ${OS}"
+            exit 1
+            ;;
+        esac
+
+        echo "os=${OS}" >> $GITHUB_OUTPUT
+        echo "arch=${ARCH}" >> $GITHUB_OUTPUT
+        echo "platform=${OS}-${ARCH}" >> $GITHUB_OUTPUT
+        echo "Detected platform: ${OS}-${ARCH}"
+
+    - name: Cache dpm
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.tool_cache }}/dpm/${{ steps.version.outputs.version }}
+        key: dpm-${{ steps.platform.outputs.platform }}-${{ steps.version.outputs.version }}
+
+    - name: Download and install dpm
+      id: install
+      shell: bash
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        PLATFORM: ${{ steps.platform.outputs.platform }}
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+      run: |
+        INSTALL_DIR="${RUNNER_TOOL_CACHE}/dpm/${VERSION}"
+
+        if [[ "${CACHE_HIT}" == "true" ]]; then
+          echo "Using cached dpm installation"
+        else
+          echo "Downloading dpm ${VERSION} for ${PLATFORM}..."
+
+          TARBALL="dpm-${VERSION}-${PLATFORM}.tar.gz"
+          URL="https://artifactregistry.googleapis.com/download/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:${VERSION}:${TARBALL}:download?alt=media"
+
+          mkdir -p "${INSTALL_DIR}"
+
+          curl -SLf "${URL}" -o "/tmp/${TARBALL}" --progress-bar
+
+          tar xzf "/tmp/${TARBALL}" -C "${INSTALL_DIR}" --strip-components=1
+
+          rm -f "/tmp/${TARBALL}"
+
+          chmod +x "${INSTALL_DIR}/bin/"*
+
+          echo "dpm installed to ${INSTALL_DIR}"
+        fi
+
+        # Add to PATH
+        echo "${INSTALL_DIR}/bin" >> $GITHUB_PATH
+
+        # Set outputs
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "path=${INSTALL_DIR}" >> $GITHUB_OUTPUT
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        echo "Verifying dpm installation..."
+        dpm version
+        echo "dpm is ready to use"
