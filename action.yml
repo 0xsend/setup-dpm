@@ -11,6 +11,10 @@ inputs:
     description: 'Version of dpm to install (e.g., "3.4.9" or "latest")'
     required: false
     default: 'latest'
+  daml-version:
+    description: 'Version of DAML SDK to install (e.g., "3.4.9"). Leave empty to skip DAML SDK installation.'
+    required: false
+    default: ''
 
 outputs:
   version:
@@ -19,6 +23,12 @@ outputs:
   path:
     description: 'Path to the dpm installation directory'
     value: ${{ steps.install.outputs.path }}
+  daml-version:
+    description: 'The version of DAML SDK that was installed (empty if not installed)'
+    value: ${{ steps.install-daml.outputs.version }}
+  daml-path:
+    description: 'Path to the DAML SDK installation directory (empty if not installed)'
+    value: ${{ steps.install-daml.outputs.path }}
 
 runs:
   using: 'composite'
@@ -119,3 +129,74 @@ runs:
         echo "Verifying dpm installation..."
         dpm version
         echo "dpm is ready to use"
+
+    # DAML SDK installation (optional)
+    - name: Cache DAML SDK
+      id: cache-daml
+      if: inputs.daml-version != ''
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.tool_cache }}/daml/${{ inputs.daml-version }}
+        key: daml-${{ steps.platform.outputs.platform }}-${{ inputs.daml-version }}
+
+    - name: Download and install DAML SDK
+      id: install-daml
+      if: inputs.daml-version != ''
+      shell: bash
+      env:
+        DAML_VERSION: ${{ inputs.daml-version }}
+        OS: ${{ steps.platform.outputs.os }}
+        ARCH: ${{ steps.platform.outputs.arch }}
+        CACHE_HIT: ${{ steps.cache-daml.outputs.cache-hit }}
+      run: |
+        INSTALL_DIR="${RUNNER_TOOL_CACHE}/daml/${DAML_VERSION}"
+
+        if [[ "${CACHE_HIT}" == "true" ]]; then
+          echo "Using cached DAML SDK installation"
+        else
+          echo "Downloading DAML SDK ${DAML_VERSION}..."
+
+          # Determine archive name based on platform
+          case "${OS}" in
+            linux)
+              ARCHIVE="daml-sdk-${DAML_VERSION}-linux.tar.gz"
+              ;;
+            darwin)
+              ARCHIVE="daml-sdk-${DAML_VERSION}-macos.tar.gz"
+              ;;
+            *)
+              echo "Unsupported OS for DAML SDK: ${OS}"
+              exit 1
+              ;;
+          esac
+
+          URL="https://github.com/digital-asset/daml/releases/download/v${DAML_VERSION}/${ARCHIVE}"
+
+          mkdir -p "${INSTALL_DIR}"
+
+          echo "Downloading from ${URL}..."
+          curl -SLf "${URL}" -o "/tmp/${ARCHIVE}" --progress-bar
+
+          tar xzf "/tmp/${ARCHIVE}" -C "${INSTALL_DIR}" --strip-components=1
+
+          rm -f "/tmp/${ARCHIVE}"
+
+          chmod +x "${INSTALL_DIR}/daml/daml"
+
+          echo "DAML SDK installed to ${INSTALL_DIR}"
+        fi
+
+        # Add to PATH
+        echo "${INSTALL_DIR}/daml" >> $GITHUB_PATH
+
+        # Set outputs
+        echo "version=${DAML_VERSION}" >> $GITHUB_OUTPUT
+        echo "path=${INSTALL_DIR}" >> $GITHUB_OUTPUT
+
+    - name: Verify DAML SDK installation
+      if: inputs.daml-version != ''
+      shell: bash
+      run: |
+        echo "Verifying DAML SDK installation..."
+        daml version
+        echo "DAML SDK is ready to use"

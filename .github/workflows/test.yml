@@ -11,6 +11,10 @@ on:
         description: 'dpm version to test'
         required: false
         default: 'latest'
+      daml-version:
+        description: 'DAML SDK version to test (empty to skip)'
+        required: false
+        default: ''
 
 jobs:
   test:
@@ -109,3 +113,48 @@ jobs:
 
       - name: Verify cached installation
         run: dpm version
+
+  test-daml-sdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+          - os: macos-14
+            name: macOS ARM64
+
+    runs-on: ${{ matrix.os }}
+    name: Test DAML SDK (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup dpm with DAML SDK
+        id: setup
+        uses: ./
+        with:
+          daml-version: '3.4.9'
+
+      - name: Verify installations
+        run: |
+          echo "=== dpm version ==="
+          dpm version
+
+          echo "=== daml version ==="
+          daml version
+
+          echo "=== Action outputs ==="
+          echo "dpm version: ${{ steps.setup.outputs.version }}"
+          echo "dpm path: ${{ steps.setup.outputs.path }}"
+          echo "daml version: ${{ steps.setup.outputs.daml-version }}"
+          echo "daml path: ${{ steps.setup.outputs.daml-path }}"
+
+      - name: Verify DAML SDK output
+        run: |
+          if [[ "${{ steps.setup.outputs.daml-version }}" != "3.4.9" ]]; then
+            echo "ERROR: Expected daml-version 3.4.9 but got ${{ steps.setup.outputs.daml-version }}"
+            exit 1
+          fi
+          echo "DAML SDK version check passed"

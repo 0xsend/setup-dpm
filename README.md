@@ -32,6 +32,22 @@ steps:
     run: dpm build
 ```
 
+### With DAML SDK
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Setup dpm with DAML SDK
+    uses: 0xsend/setup-dpm@v1
+    with:
+      version: '3.4.9'
+      daml-version: '3.4.9'
+
+  - name: Build DAML project
+    run: dpm build
+```
+
 ### Using outputs
 
 ```yaml
@@ -53,6 +69,7 @@ steps:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `version` | Version of dpm to install (e.g., `3.4.9` or `latest`) | No | `latest` |
+| `daml-version` | Version of DAML SDK to install (e.g., `3.4.9`). Leave empty to skip. | No | `''` |
 
 ## Outputs
 
@@ -60,6 +77,8 @@ steps:
 |--------|-------------|
 | `version` | The version of dpm that was installed |
 | `path` | Path to the dpm installation directory |
+| `daml-version` | The version of DAML SDK that was installed (empty if not installed) |
+| `daml-path` | Path to the DAML SDK installation directory (empty if not installed) |
 
 ## Supported Platforms
 
@@ -72,9 +91,11 @@ steps:
 
 ## Caching
 
-This action automatically caches dpm installations using `actions/cache`. Subsequent runs with the same version will use the cached installation, significantly reducing setup time.
+This action automatically caches both dpm and DAML SDK installations using `actions/cache`. Subsequent runs with the same versions will use cached installations, significantly reducing setup time.
 
-Cache key format: `dpm-{platform}-{version}`
+Cache key formats:
+- dpm: `dpm-{platform}-{version}`
+- DAML SDK: `daml-{platform}-{version}`
 
 ## Example Workflows
 
