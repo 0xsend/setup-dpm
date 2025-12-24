@@ -157,15 +157,20 @@ runs:
           echo "Downloading DAML SDK ${DAML_VERSION}..."
 
           # Determine archive name based on platform
-          case "${OS}" in
-            linux)
-              ARCHIVE="daml-sdk-${DAML_VERSION}-linux.tar.gz"
+          # Note: DAML SDK only provides x86_64 for macOS (runs via Rosetta 2 on ARM64)
+          case "${OS}-${ARCH}" in
+            linux-amd64)
+              ARCHIVE="daml-sdk-${DAML_VERSION}-linux-x86_64.tar.gz"
               ;;
-            darwin)
-              ARCHIVE="daml-sdk-${DAML_VERSION}-macos.tar.gz"
+            linux-arm64)
+              ARCHIVE="daml-sdk-${DAML_VERSION}-linux-aarch64.tar.gz"
+              ;;
+            darwin-amd64|darwin-arm64)
+              # macOS ARM64 uses x86_64 build via Rosetta 2
+              ARCHIVE="daml-sdk-${DAML_VERSION}-macos-x86_64.tar.gz"
               ;;
             *)
-              echo "Unsupported OS for DAML SDK: ${OS}"
+              echo "Unsupported platform for DAML SDK: ${OS}-${ARCH}"
               exit 1
               ;;
           esac
