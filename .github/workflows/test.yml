@@ -142,14 +142,10 @@ jobs:
           echo "=== dpm version ==="
           dpm version
 
-          echo "=== daml version ==="
-          daml version
-
           echo "=== Action outputs ==="
           echo "dpm version: ${{ steps.setup.outputs.version }}"
           echo "dpm path: ${{ steps.setup.outputs.path }}"
           echo "daml version: ${{ steps.setup.outputs.daml-version }}"
-          echo "daml path: ${{ steps.setup.outputs.daml-path }}"
 
       - name: Verify DAML SDK output
         run: |

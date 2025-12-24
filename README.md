@@ -78,7 +78,6 @@ steps:
 | `version` | The version of dpm that was installed |
 | `path` | Path to the dpm installation directory |
 | `daml-version` | The version of DAML SDK that was installed (empty if not installed) |
-| `daml-path` | Path to the DAML SDK installation directory (empty if not installed) |
 
 ## Supported Platforms
 
@@ -91,11 +90,11 @@ steps:
 
 ## Caching
 
-This action automatically caches both dpm and DAML SDK installations using `actions/cache`. Subsequent runs with the same versions will use cached installations, significantly reducing setup time.
+This action automatically caches dpm installations using `actions/cache`. Subsequent runs with the same version will use the cached installation, significantly reducing setup time.
 
-Cache key formats:
-- dpm: `dpm-{platform}-{version}`
-- DAML SDK: `daml-{platform}-{version}`
+Cache key format: `dpm-{platform}-{version}`
+
+DAML SDK installations are managed by dpm and stored in its own cache directory.
 
 ## Example Workflows
 
